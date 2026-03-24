@@ -5,6 +5,10 @@ on:
     branches:
       - master
 
+permissions:
+  issues: write
+  contents: read
+
 jobs:
   sast_scan:
     name: Semgrep SAST Scan
