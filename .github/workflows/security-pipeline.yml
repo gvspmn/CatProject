@@ -31,7 +31,7 @@ jobs:
 
       - name: Start the Application using Docker Compose
         run: |
-          docker compose up -d --build
+          docker-compose up --build -d
           echo "Чекаємо 15 секунд, щоб база даних та сервер повністю запустилися..."
           sleep 15
 
