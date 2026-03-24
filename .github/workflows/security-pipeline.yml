@@ -1,0 +1,45 @@
+name: Security CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  sast_scan:
+    name: Semgrep SAST Scan
+    runs-on: self-hosted
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/javascript
+            p/security-audit
+            p/owasp-top-ten
+
+  dast_scan:
+    name: OWASP ZAP DAST Scan
+    runs-on: self-hosted
+    needs: sast_scan 
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Start the Application using Docker Compose
+        run: |
+          docker compose up -d --build
+          echo "Чекаємо 15 секунд, щоб база даних та сервер повністю запустилися..."
+          sleep 15
+
+      - name: Run OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          # Націлюємо сканер на локальний сервер, який ми щойно підняли
+          target: 'http://localhost:3000'
+          # Дозволяємо пайплайну завершитися успішно, навіть якщо ZAP знайде вразливості (зручно для тестування)
+          fail_action: false
+          # ZAP автоматично згенерує звіт (HTML/Markdown) про знайдені проблеми

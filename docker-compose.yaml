@@ -1,0 +1,29 @@
+version: '3.3'
+
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_USER=pryanyk_admin
+      - DB_HOST=db
+      - DB_NAME=cat_blog
+      - DB_PASSWORD=super_secret_db_pass
+      - DB_PORT=5432
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=pryanyk_admin
+      - POSTGRES_PASSWORD=super_secret_db_pass
+      - POSTGRES_DB=cat_blog
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
