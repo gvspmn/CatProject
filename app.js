@@ -29,7 +29,7 @@ pool.query(`
     if (parseInt(res.rows[0].count) === 0) {
         await pool.query("INSERT INTO comments (text) VALUES ('Мяу! Дуже класний блог.'), ('Коли буде огляд на новий корм?')");
     }
-    console.log('🐾 База даних підключена та готова!');
+    console.log('База даних підключена та готова!');
 }).catch(err => console.error('Помилка ініціалізації БД:', err));
 
 
