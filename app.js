@@ -4,7 +4,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // НАВМИСНА ВРАЗЛИВІСТЬ 1: Secrets Management
-// Жорстко закодований пароль до бази даних або API ключ.
+// Жорстк закодований пароль до бази даних або API ключ.
 const CAT_API_SECRET_KEY = "AKIA-PRYANYK-SUPER-SECRET-123";
 
 app.use(express.urlencoded({ extended: true }));
