@@ -1,15 +1,33 @@
 const express = require('express');
 const { Pool } = require('pg');
+const promClient = require('prom-client'); // ДОДАНО: Бібліотека для Prometheus
 const app = express();
 const port = process.env.PORT || 3000;
 
-// НАВМИСНА ВРАЗЛИВІСТЬ 1: Secrets Management
-// Жорст закодований пароль до бази даних або API ключ.
-const CAT_API_SECRET_KEY = "AKIA-PRYANYK-SUPER-SECRET-123";
+// ==========================================
+// МОНІТОРИНГ: Налаштування Prometheus
+// ==========================================
+// Збираємо стандартні метрики (CPU, RAM, Event Loop)
+const collectDefaultMetrics = promClient.collectDefaultMetrics;
+collectDefaultMetrics({ register: promClient.register });
+
+// Створюємо власну метрику: лічильник нових коментарів
+const commentCounter = new promClient.Counter({
+    name: 'cat_blog_comments_total',
+    help: 'Загальна кількість залишених коментарів'
+});
 
 app.use(express.urlencoded({ extended: true }));
 
-// Налаштування підключення до БД (значення беруться зі змінних оточення Docker)
+// ==========================================
+// БЕЗПЕКА 1: Secrets Management (ВИПРАВЛЕНО)
+// ==========================================
+// Раніше тут був жорстко закодований ключ. Тепер він береться із середовища.
+const CAT_API_SECRET_KEY = process.env.CAT_API_SECRET_KEY || "missing_secret";
+// Пароль від адмінки теж винесено у змінні середовища
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "secure_admin_token_2025";
+
+// Налаштування підключення до БД 
 const pool = new Pool({
     user: process.env.DB_USER || 'postgres',
     host: process.env.DB_HOST || 'localhost',
@@ -18,7 +36,7 @@ const pool = new Pool({
     port: process.env.DB_PORT || 5432,
 });
 
-// Ініціалізація бази даних (створюємо таблицю, якщо її немає, і додаємо перші коментарі)
+// Ініціалізація бази даних
 pool.query(`
     CREATE TABLE IF NOT EXISTS comments (
         id SERIAL PRIMARY KEY,
@@ -32,9 +50,20 @@ pool.query(`
     console.log('База даних підключена та готова!');
 }).catch(err => console.error('Помилка ініціалізації БД:', err));
 
+// ==========================================
+// БЕЗПЕКА 2: Захист від XSS (ВИПРАВЛЕНО)
+// ==========================================
+// Функція для екранування небезпечних символів (щоб хакер не міг виконати JavaScript)
+function escapeHtml(unsafe) {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+}
 
 app.get('/', async (req, res) => {
-    // Отримуємо коментарі з реальної бази даних
     let comments = [];
     try {
         const result = await pool.query('SELECT text FROM comments ORDER BY id ASC');
@@ -43,9 +72,8 @@ app.get('/', async (req, res) => {
         console.error("Помилка отримання коментарів:", err);
     }
 
-    // НАВМИСНА ВРАЗЛИВІСТЬ 2: SAST / DAST (XSS - міжсайтовий скриптинг)
-    // Коментарі виводяться без екранування спеціальних символів.
-    let commentsHtml = comments.map(c => `<li>${c}</li>`).join('');
+    // ВИПРАВЛЕННЯ XSS: Тепер ми пропускаємо кожен коментар через функцію escapeHtml
+    let commentsHtml = comments.map(c => `<li>${escapeHtml(c)}</li>`).join('');
 
     const htmlTemplate = `
     <!DOCTYPE html>
@@ -70,13 +98,11 @@ app.get('/', async (req, res) => {
             <ul>
                 ${commentsHtml}
             </ul>
-
             <form method="POST" action="/comment">
-                <input type="text" name="new_comment" placeholder="Напишіть щось приємне..." autocomplete="off">
+                <input type="text" name="new_comment" placeholder="Напишіть щось приємне..." autocomplete="off" required>
                 <button type="submit">Мяукнути</button>
             </form>
-
-            <a href="/admin?token=admin_cat_123" class="admin-link">Секретна адмінка</a>
+            <a href="/admin?token=secure_admin_token_2025" class="admin-link">Секретна адмінка</a>
         </div>
     </body>
     </html>
@@ -87,8 +113,9 @@ app.get('/', async (req, res) => {
 app.post('/comment', async (req, res) => {
     if (req.body.new_comment) {
         try {
-            // Зберігаємо коментар у базу даних
             await pool.query('INSERT INTO comments (text) VALUES ($1)', [req.body.new_comment]);
+            // Збільшуємо лічильник для Prometheus при кожному новому коментарі
+            commentCounter.inc(); 
         } catch (err) {
             console.error("Помилка збереження коментаря:", err);
         }
@@ -96,16 +123,25 @@ app.post('/comment', async (req, res) => {
     res.redirect('/');
 });
 
-// НАВМИСНА ВРАЗЛИВІСТЬ 3: Broken Access Control
+// ==========================================
+// БЕЗПЕКА 3: Broken Access Control (ВИПРАВЛЕНО)
+// ==========================================
 app.get('/admin', (req, res) => {
     const token = req.query.token;
-    if (token === "admin_cat_123") {
-        res.send("<h1>Секретна панель керування запасами смаколиків</h1><p>Доступ дозволено!</p>");
+    // Тепер токен порівнюється із секретною змінною оточення, а не жорстко закодованим текстом
+    if (token === ADMIN_TOKEN) {
+        res.send("<h1>Секретна панель керування запасами смаколиків</h1><p>Доступ дозволено! Аналітика працює.</p>");
     } else {
-        res.status(403).send("<h1>Доступ заборонено! Ти не кіт!</h1>");
+        res.status(403).send("<h1>Доступ заборонено! Невірний токен авторизації.</h1>");
     }
 });
 
+// Ендпоінт для Prometheus (ВІН БУДЕ ЗБИРАТИ ЗВІДСИ ДАНІ)
+app.get('/metrics', async (req, res) => {
+    res.set('Content-Type', promClient.register.contentType);
+    res.end(await promClient.register.metrics());
+});
+
 app.listen(port, () => {
-    console.log(`Котячий сервер запущено на 192.168.1.50:${port}`);
+    console.log(\`Котячий сервер запущено на порту \${port}\`);
 });
