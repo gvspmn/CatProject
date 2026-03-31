@@ -1,29 +1,71 @@
 version: '3.3'
 
 services:
+  # 1. Reverse Proxy (Nginx) - точка входу в нашу інфраструктуру
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web
+    networks:
+      - app-network
+
+  # 2. Твій веб-застосунок (Node.js)
   web:
     build: .
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000" # Змінили з ports на expose, щоб доступ був лише через Nginx
     environment:
-      - DB_USER=pryanyk_admin
+      - DB_USER=${DB_USER}
       - DB_HOST=db
-      - DB_NAME=cat_blog
-      - DB_PASSWORD=super_secret_db_pass
+      - DB_NAME=${DB_NAME}
+      - DB_PASSWORD=${DB_PASSWORD}
       - DB_PORT=5432
     depends_on:
       - db
+    networks:
+      - app-network
 
+  # 3. База даних (PostgreSQL)
   db:
     image: postgres:15-alpine
     environment:
-      - POSTGRES_USER=pryanyk_admin
-      - POSTGRES_PASSWORD=super_secret_db_pass
-      - POSTGRES_DB=cat_blog
-    ports:
-      - "5432:5432"
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  # 4. Система моніторингу (Prometheus) - вимога курсової
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - app-network
+
+  # 5. Візуалізація моніторингу (Grafana) - вимога курсової
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin # Пароль для входу в Grafana
+    depends_on:
+      - prometheus
+    networks:
+      - app-network
 
 volumes:
   pgdata:
+
+networks:
+  app-network:
+    driver: bridge
