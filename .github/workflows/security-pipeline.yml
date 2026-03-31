@@ -43,6 +43,6 @@ jobs:
       - name: Run OWASP ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.14.0
         with:
-          target: 'http://192.168.1.50:3000'
+          target: 'http://localhost'
           fail_action: false
           artifact_name: 'zap-reports'
