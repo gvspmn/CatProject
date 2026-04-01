@@ -68,7 +68,6 @@ services:
       - grafana_data:/var/lib/grafana
     networks:
       - app-network
-<<<<<<< HEAD
 
   node-exporter:
     image: prom/node-exporter:latest
@@ -78,8 +77,6 @@ services:
     networks:
       - app-network
 
-=======
->>>>>>> 335470135e2fe0e29a0fbcbfe5f1de6cab4e7bb8
 volumes:
   pgdata:
   grafana_data:
