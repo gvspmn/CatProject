@@ -71,7 +71,7 @@ services:
     ports:
       - "9100:9100"
     networks:
-      - app-network  # <--- ТІЛЬКИ ЦЕ ТРЕБА ЗМІНИТИ
+      - app-network
 
 volumes:
   pgdata:
