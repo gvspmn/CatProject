@@ -1,0 +1,28 @@
+---
+- name: Setup Secure Infrastructure for CatProject
+  hosts: my_server
+  become: yes
+
+  tasks:
+    - name: Ensure UFW (Firewall) is installed
+      apt:
+        name: ufw
+        state: present
+
+    - name: Allow SSH, HTTP and Monitoring ports
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - '22'    # SSH
+        - '80'    # Nginx
+        - '3001'  # Grafana
+        - '8089'  # Locust
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+
+    - name: Deploy Docker Compose Project
+      shell: "docker compose -f /home/yana/prod/CatProject/docker-compose.yaml up -d"
