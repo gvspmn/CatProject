@@ -56,6 +56,8 @@ services:
     image: grafana/grafana:latest
     ports:
       - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin # Пароль для входу в Grafana
     depends_on:
@@ -63,8 +65,17 @@ services:
     networks:
       - app-network
 
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: catproject_node_exporter
+    ports:
+      - "9100:9100"
+    networks:
+      - app-network  # <--- ТІЛЬКИ ЦЕ ТРЕБА ЗМІНИТИ
+
 volumes:
   pgdata:
+  grafana_data:
 
 networks:
   app-network:

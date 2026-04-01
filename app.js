@@ -143,5 +143,5 @@ app.get('/metrics', async (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(\`Котячий сервер запущено на порту \${port}\`);
+    console.log(`Котячий сервер запущено на порту ${port}`);
 });
